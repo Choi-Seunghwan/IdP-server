@@ -1,8 +1,12 @@
+from typing import TYPE_CHECKING
 from sqlalchemy import Column, String, Boolean, DateTime
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import datetime, UTC
 from app.core.database import Base
 import uuid
+
+if TYPE_CHECKING:
+    from app.auth.model import RefreshToken
 
 
 class User(Base):
@@ -30,6 +34,6 @@ class User(Base):
     # social_accounts: Mapped[list["SocialAccount"]] = relationship(
     #     back_populates="user", cascade="all, delete-orphan"
     # )
-    # refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
-    #     back_populates="user", cascade="all, delete-orphan"
-    # )
+    refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
