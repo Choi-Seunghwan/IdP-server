@@ -1,10 +1,15 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List
+from pydantic import field_validator
+from typing import List, Union
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+        json_schema_extra={'env_parse_none_str': None}
     )
 
     # Application
@@ -25,12 +30,22 @@ class Settings(BaseSettings):
 
     # Security
     secret_key: str = "dev-secret"
-    algorithm: str = ""
+    algorithm: str = "HS256"  # JWT 서명 알고리즘
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
 
+    # SSO/OIDC
+    issuer: str = "http://localhost:8000"  # OIDC Issuer URL
+
     # CORS
-    allowed_origins: List[str] = ["http://localhost:3000"]
+    allowed_origins: Union[str, List[str]] = ["http://localhost:3000"]
+
+    @field_validator('allowed_origins', mode='before')
+    @classmethod
+    def parse_cors(cls, v) -> List[str]:
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(',')]
+        return v
 
     # OAuth - Google
     google_client_id: str = ""

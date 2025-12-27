@@ -50,3 +50,18 @@ async def get_optional_token_from_header(
         pass
 
     return None
+
+
+async def get_optional_user_id_from_token(
+    authorization: Optional[str] = Header(None)
+) -> Optional[str]:
+    """선택적 사용자 ID 추출 (토큰이 없어도 OK)"""
+    token = await get_optional_token_from_header(authorization)
+    if not token:
+        return None
+
+    try:
+        payload = verify_token(token, token_type="access")
+        return payload.get("sub")
+    except Exception:
+        return None
