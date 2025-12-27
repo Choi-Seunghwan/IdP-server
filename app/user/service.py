@@ -1,5 +1,10 @@
 import uuid
-from app.core.exceptions import BadRequestException, ConflictException, NotFoundException
+from app.core.exceptions import (
+    BadRequestException,
+    ConflictException,
+    NotFoundException,
+    UnauthorizedException,
+)
 from app.core.security import hash_password, verify_password
 from app.user.dto import ChangePasswordDto, CreateUserDto, UpdateUserDto, UserDto
 from app.user.model import User
@@ -76,3 +81,20 @@ class UserService:
         if not user:
             raise NotFoundException(detail="User not found")
         await self.user_repository.delete(user)
+
+    async def authenticate_user(self, email: str, password: str) -> UserDto:
+        """이메일과 비밀번호로 사용자 인증"""
+        user = await self.user_repository.find_by_email(email)
+        if not user:
+            raise UnauthorizedException(detail="Invalid email or password")
+
+        if not user.hashed_password:
+            raise UnauthorizedException(detail="Please use social login")
+
+        if not verify_password(password, user.hashed_password):
+            raise UnauthorizedException(detail="Invalid email or password")
+
+        if not user.is_active:
+            raise UnauthorizedException(detail="User account is inactive")
+
+        return UserDto.model_validate(user)
