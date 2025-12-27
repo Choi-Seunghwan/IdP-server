@@ -1,6 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator
-from typing import List, Union
+from typing import List
 
 
 class Settings(BaseSettings):
@@ -9,7 +8,6 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
-        json_schema_extra={'env_parse_none_str': None}
     )
 
     # Application
@@ -38,14 +36,14 @@ class Settings(BaseSettings):
     issuer: str = "http://localhost:8000"  # OIDC Issuer URL
 
     # CORS
-    allowed_origins: Union[str, List[str]] = ["http://localhost:3000"]
+    # .env에서 쉼표로 구분된 문자열로 입력: "http://localhost:3000,http://localhost:3001"
+    allowed_origins: str = "http://localhost:3000"
 
-    @field_validator('allowed_origins', mode='before')
-    @classmethod
-    def parse_cors(cls, v) -> List[str]:
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(',')]
-        return v
+    def get_allowed_origins_list(self) -> List[str]:
+        """CORS 허용 오리진을 리스트로 반환"""
+        if not self.allowed_origins or not self.allowed_origins.strip():
+            return ["http://localhost:3000"]
+        return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
 
     # OAuth - Google
     google_client_id: str = ""
