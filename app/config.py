@@ -4,10 +4,7 @@ from typing import List
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="ignore"
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
 
     # Application
@@ -21,12 +18,14 @@ class Settings(BaseSettings):
     port: int = 8000
 
     # Database
-    database_url: str
+    database_url: str = (
+        "postgresql+asyncpg://identity_user:identity_pass@localhost:5432/identity_db"
+    )
     db_echo: bool = False
 
     # Security
-    secret_key: str
-    algorithm: str = "HS256"
+    secret_key: str = "dev-secret"
+    algorithm: str = ""
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
 
