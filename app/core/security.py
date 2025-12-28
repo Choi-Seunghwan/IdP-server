@@ -1,21 +1,41 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any, Dict, Optional
-from passlib.context import CryptContext
+import bcrypt
+import hashlib
 from app.config import settings
 from jose import JWTError, jwt
 
 from app.core.exceptions import UnauthorizedException
 
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    """
+    비밀번호 해시
+    bcrypt는 72바이트 제한이 있으므로, 긴 비밀번호는 먼저 SHA-256으로 해시한 후 bcrypt에 전달
+    """
+    password_bytes = password.encode("utf-8")
+
+    # 72바이트를 초과하는 경우 SHA-256으로 사전 해싱
+    if len(password_bytes) > 72:
+        password_bytes = hashlib.sha256(password_bytes).digest()
+
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    """
+    비밀번호를 검증 hash_password와 동일한 방식으로 처리
+    """
+    password_bytes = plain_password.encode("utf-8")
+
+    # 72바이트를 초과하는 경우 SHA-256으로 사전 해싱
+    if len(password_bytes) > 72:
+        password_bytes = hashlib.sha256(password_bytes).digest()
+
+    hashed_bytes = hashed_password.encode("utf-8")
+    return bcrypt.checkpw(password_bytes, hashed_bytes)
 
 
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
