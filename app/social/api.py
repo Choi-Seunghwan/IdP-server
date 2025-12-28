@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query, status
 from app.core.dependencies import get_current_user_id_from_token
+from app.core.state_manager import save_oauth_state, verify_oauth_state
 from app.social.service import SocialService
 from app.social.di import get_social_service
 from app.social.dto import SocialLoginUrlDto, SocialLoginDto, SocialAccountDto, ConnectSocialDto
@@ -15,7 +16,8 @@ async def get_social_login_url(
 ):
     """소셜 로그인 URL 생성"""
     state = secrets.token_urlsafe(32)  # CSRF 방지용 state
-    # TODO: state를 Redis/Session에 저장
+    # State를 Redis에 저장 (10분 만료)
+    await save_oauth_state(state, provider.lower())
     return await social_service.get_authorization_url(provider, state)
 
 
@@ -27,7 +29,8 @@ async def social_login_callback(
     social_service: SocialService = Depends(get_social_service),
 ):
     """OAuth 콜백 처리"""
-    # TODO: state 검증 (Redis/Session에 저장한 state와 비교)
+    # State 검증 (CSRF 공격 방지)
+    await verify_oauth_state(state, provider.lower())
     return await social_service.handle_callback(provider, code)
 
 

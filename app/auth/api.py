@@ -45,12 +45,34 @@ async def refresh_token(
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-async def logout(dto: RefreshTokenDto, auth_service: AuthService = Depends(get_auth_service)):
+async def logout(
+    dto: RefreshTokenDto,
+    response: Response,
+    auth_service: AuthService = Depends(get_auth_service),
+):
     """로그아웃 (현재 기기)"""
     await auth_service.logout(dto)
+    # SSO 플로우를 위해 쿠키도 삭제 (설정 일치 필요)
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        samesite="lax",
+        secure=False,  # 개발 환경에서는 false, 프로덕션에서는 true
+    )
 
 
 @router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
-async def logout_all(user_id: str, auth_service: AuthService = Depends(get_auth_service)):
+async def logout_all(
+    user_id: str,
+    response: Response,
+    auth_service: AuthService = Depends(get_auth_service),
+):
     """전체 로그아웃 (모든 기기)"""
     await auth_service.logout_all(user_id)
+    # SSO 플로우를 위해 쿠키도 삭제 (설정 일치 필요)
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        samesite="lax",
+        secure=False,  # 개발 환경에서는 false, 프로덕션에서는 true
+    )
