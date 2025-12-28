@@ -77,3 +77,7 @@ alembic/versions/*.pyc
 .DS_Store
 .AppleDouble
 .LSOverride
+
+
+# Test Clients
+test-clients/
