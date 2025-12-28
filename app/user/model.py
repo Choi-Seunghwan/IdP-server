@@ -7,6 +7,7 @@ import uuid
 
 if TYPE_CHECKING:
     from app.auth.model import RefreshToken
+    from app.social.model import SocialAccount
 
 
 class User(Base):
@@ -31,9 +32,9 @@ class User(Base):
     )
 
     # Relationships
-    # social_accounts: Mapped[list["SocialAccount"]] = relationship(
-    #     back_populates="user", cascade="all, delete-orphan"
-    # )
+    social_accounts: Mapped[list["SocialAccount"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
