@@ -12,8 +12,18 @@ class GoogleOAuthProvider:
     USER_INFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 
     @staticmethod
-    def get_authorization_url(state: str) -> str:
-        """Google OAuth 인증 URL 생성"""
+    def get_authorization_url(state: str, prompt: str = "select_account") -> str:
+        """
+        Google OAuth 인증 URL 생성
+
+        Args:
+            state: CSRF 방지용 state
+            prompt: Google OAuth prompt 파라미터
+                - "select_account": 항상 계정 선택 화면 표시 (기본값)
+                - "consent": 권한 동의 화면 표시
+                - "none": 자동 로그인 시도 (로그인 안 되어 있으면 에러)
+                - 생략: Google이 자동 처리 (보통 이전 계정으로 자동 로그인)
+        """
 
         params = {
             "client_id": settings.google_client_id,
@@ -21,6 +31,7 @@ class GoogleOAuthProvider:
             "response_type": "code",
             "scope": "openid email profile",
             "state": state,
+            "prompt": prompt,  # 계정 선택 화면 항상 표시
         }
 
         query_string = "&".join([f"{k}={v}" for k, v in params.items()])
