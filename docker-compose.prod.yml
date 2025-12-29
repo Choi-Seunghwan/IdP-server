@@ -1,0 +1,67 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: identity-db
+    environment:
+      POSTGRES_USER: identity_user
+      POSTGRES_PASSWORD: identity_pass
+      POSTGRES_DB: identity_db
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+      TZ: Asia/Seoul
+    ports:
+      - "127.0.0.1:5432:5432" # 외부 접근 차단
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U identity_user -d identity_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: identity-redis
+    ports:
+      - "127.0.0.1:6379:6379" # 외부 접근 차단
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  app:
+    build: .
+    container_name: identity-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://identity_user:identity_pass@postgres:5432/identity_db
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./migrations:/app/migrations # 마이그레이션 파일만 마운트
+      - ./keys:/app/keys  # RSA 키 파일 마운트 (RS256 사용 시)
+    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
+  redis_data:
