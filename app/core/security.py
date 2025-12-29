@@ -12,6 +12,8 @@ from app.core.exceptions import UnauthorizedException
 from app.core.jwt_keys import (
     load_rsa_private_key,
     load_rsa_public_key,
+    get_private_key_pem_string,
+    get_public_key_pem_string,
 )
 
 
@@ -65,7 +67,7 @@ def _get_signing_key():
                 "RSA private key not found. "
                 "Please set RSA_PRIVATE_KEY or RSA_PRIVATE_KEY_PATH in .env"
             )
-        return private_key
+        return get_private_key_pem_string(private_key)
     else:
         # HS256: 대칭키 사용
         return settings.secret_key
@@ -109,7 +111,8 @@ def _get_verification_key():
                 "RSA public key not found. "
                 "Please set RSA_PUBLIC_KEY or RSA_PUBLIC_KEY_PATH in .env"
             )
-        return public_key
+        # jose 라이브러리는 PEM 문자열을 기대하므로 변환
+        return get_public_key_pem_string(public_key)
     else:
         # HS256: 대칭키 사용
         return settings.secret_key
