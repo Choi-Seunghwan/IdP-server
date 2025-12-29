@@ -1,6 +1,6 @@
 from datetime import datetime, UTC
 import uuid
-from sqlalchemy import String, DateTime, ForeignKey, Boolean
+from sqlalchemy import String, DateTime, ForeignKey, Boolean, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 from app.user.model import User
@@ -10,7 +10,7 @@ class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    token: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    token: Mapped[str] = mapped_column(Text, unique=True, index=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
 
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
