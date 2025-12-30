@@ -166,8 +166,17 @@
   </head>
   <body>
     <div class="login-container">
-      <h1>로그인</h1>
-      <p class="subtitle">Identity Service에 로그인하세요</p>
+      <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #ddd;">
+        <button type="button" id="loginTab" style="flex: 1; padding: 10px; background: #667eea; color: white; border: none; border-radius: 6px 6px 0 0; cursor: pointer; font-weight: 500;">
+          로그인
+        </button>
+        <button type="button" id="signupTab" style="flex: 1; padding: 10px; background: transparent; color: #666; border: none; cursor: pointer;">
+          회원가입
+        </button>
+      </div>
+
+      <h1 id="pageTitle">로그인</h1>
+      <p class="subtitle" id="pageSubtitle">Identity Service에 로그인하세요</p>
 
       <form id="loginForm">
         <div class="form-group">
@@ -195,6 +204,45 @@
         <div class="error" id="errorMessage"></div>
 
         <button type="submit" id="submitBtn">로그인</button>
+      </form>
+
+      <form id="signupForm" style="display: none;">
+        <div class="form-group">
+          <label for="signupEmail">이메일</label>
+          <input
+            type="email"
+            id="signupEmail"
+            name="email"
+            required
+            autocomplete="email"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="signupPassword">비밀번호 (최소 8자)</label>
+          <input
+            type="password"
+            id="signupPassword"
+            name="password"
+            required
+            minLength="8"
+            autocomplete="new-password"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="username">사용자명 (선택)</label>
+          <input
+            type="text"
+            id="username"
+            name="username"
+            autocomplete="username"
+          />
+        </div>
+
+        <div class="error" id="signupErrorMessage"></div>
+
+        <button type="submit" id="signupSubmitBtn">회원가입</button>
       </form>
 
       <div class="divider">
@@ -243,9 +291,16 @@
     </div>
 
     <script>
-      const form = document.getElementById("loginForm");
+      const loginForm = document.getElementById("loginForm");
+      const signupForm = document.getElementById("signupForm");
+      const loginTab = document.getElementById("loginTab");
+      const signupTab = document.getElementById("signupTab");
+      const pageTitle = document.getElementById("pageTitle");
+      const pageSubtitle = document.getElementById("pageSubtitle");
       const errorDiv = document.getElementById("errorMessage");
+      const signupErrorDiv = document.getElementById("signupErrorMessage");
       const submitBtn = document.getElementById("submitBtn");
+      const signupSubmitBtn = document.getElementById("signupSubmitBtn");
 
       // URL에서 redirect 파라미터 추출
       const urlParams = new URLSearchParams(window.location.search);
@@ -254,6 +309,33 @@
       if (!redirectUrl) {
         redirectUrl = "/";
       }
+
+      // 탭 전환
+      loginTab.addEventListener("click", () => {
+        loginForm.style.display = "block";
+        signupForm.style.display = "none";
+        loginTab.style.background = "#667eea";
+        loginTab.style.color = "white";
+        signupTab.style.background = "transparent";
+        signupTab.style.color = "#666";
+        pageTitle.textContent = "로그인";
+        pageSubtitle.textContent = "Identity Service에 로그인하세요";
+        errorDiv.classList.remove("show");
+        signupErrorDiv.classList.remove("show");
+      });
+
+      signupTab.addEventListener("click", () => {
+        loginForm.style.display = "none";
+        signupForm.style.display = "block";
+        signupTab.style.background = "#667eea";
+        signupTab.style.color = "white";
+        loginTab.style.background = "transparent";
+        loginTab.style.color = "#666";
+        pageTitle.textContent = "회원가입";
+        pageSubtitle.textContent = "새 계정을 만드세요";
+        errorDiv.classList.remove("show");
+        signupErrorDiv.classList.remove("show");
+      });
 
       // 소셜 로그인 버튼 이벤트
       async function handleSocialLogin(provider) {
@@ -286,7 +368,84 @@
         handleSocialLogin("naver");
       });
 
-      form.addEventListener("submit", async (e) => {
+      // 회원가입 폼 제출
+      signupForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const email = document.getElementById("signupEmail").value;
+        const password = document.getElementById("signupPassword").value;
+        const username = document.getElementById("username").value;
+
+        signupErrorDiv.classList.remove("show");
+        signupSubmitBtn.disabled = true;
+        signupSubmitBtn.textContent = "가입 중...";
+
+        try {
+          // 회원가입 API 호출
+          const signupResponse = await fetch("/api/users", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              email,
+              password,
+              username: username || null,
+            }),
+          });
+
+          const signupData = await signupResponse.json();
+
+          if (signupResponse.ok) {
+            // 회원가입 성공 - 자동 로그인
+            const loginResponse = await fetch("/api/auth/login", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ email, password }),
+            });
+
+            const loginData = await loginResponse.json();
+
+            if (loginResponse.ok) {
+              // 로그인 성공 - 토큰 저장
+              localStorage.setItem("access_token", loginData.access_token);
+              localStorage.setItem("refresh_token", loginData.refresh_token);
+
+              // 쿠키에도 토큰 저장
+              const expires = new Date();
+              expires.setTime(expires.getTime() + 30 * 60 * 1000); // 30분
+              document.cookie = `access_token=${
+                loginData.access_token
+              }; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+
+              // 원래 요청한 authorize 엔드포인트로 리다이렉트
+              window.location.href = redirectUrl;
+            } else {
+              signupErrorDiv.textContent = "회원가입은 완료되었지만 자동 로그인에 실패했습니다. 로그인해주세요.";
+              signupErrorDiv.classList.add("show");
+              signupSubmitBtn.disabled = false;
+              signupSubmitBtn.textContent = "회원가입";
+              // 로그인 탭으로 전환
+              loginTab.click();
+            }
+          } else {
+            signupErrorDiv.textContent = signupData.detail || "회원가입 실패";
+            signupErrorDiv.classList.add("show");
+            signupSubmitBtn.disabled = false;
+            signupSubmitBtn.textContent = "회원가입";
+          }
+        } catch (error) {
+          signupErrorDiv.textContent = "회원가입 중 오류가 발생했습니다.";
+          signupErrorDiv.classList.add("show");
+          signupSubmitBtn.disabled = false;
+          signupSubmitBtn.textContent = "회원가입";
+        }
+      });
+
+      // 로그인 폼 제출
+      loginForm.addEventListener("submit", async (e) => {
         e.preventDefault();
 
         const email = document.getElementById("email").value;
