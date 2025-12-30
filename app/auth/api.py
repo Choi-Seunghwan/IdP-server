@@ -28,9 +28,9 @@ async def login(
         value=token_dto.access_token,
         expires=expires,
         path="/",
-        httponly=False,  # SSO 플로우를 위해 false (JavaScript 접근 필요)
+        httponly=True,
         samesite="lax",
-        secure=False,  # 개발 환경에서는 false, 프로덕션에서는 true 권장
+        secure=True,
     )
 
     return token_dto
