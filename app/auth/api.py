@@ -20,8 +20,9 @@ async def login(
     token_dto = await auth_service.login(dto)
 
     # SSO 플로우를 위해 쿠키에도 토큰 저장
-    # HttpOnly 쿠키로 설정하면 XSS 공격에 더 안전하지만,
-    # 현재는 JavaScript에서도 접근 가능하도록 설정 (SameSite=Lax)
+    # HttpOnly=True: JavaScript 접근 불가 (XSS 공격 방지)
+    # Secure=True: HTTPS에서만 전송 (프로덕션)
+    # SameSite=Lax: CSRF 공격 방지
     expires = datetime.now(UTC) + timedelta(minutes=30)
     response.set_cookie(
         key="access_token",
@@ -57,7 +58,7 @@ async def logout(
         key="access_token",
         path="/",
         samesite="lax",
-        secure=False,  # 개발 환경에서는 false, 프로덕션에서는 true
+        secure=True,  # 프로덕션: HTTPS 사용
     )
 
 
@@ -74,5 +75,5 @@ async def logout_all(
         key="access_token",
         path="/",
         samesite="lax",
-        secure=False,  # 개발 환경에서는 false, 프로덕션에서는 true
+        secure=True,  # 프로덕션: HTTPS 사용
     )
