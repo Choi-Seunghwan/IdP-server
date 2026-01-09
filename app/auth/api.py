@@ -53,12 +53,12 @@ async def logout(
 ):
     """로그아웃 (현재 기기)"""
     await auth_service.logout(dto)
-    # SSO 플로우를 위해 쿠키도 삭제 (설정 일치 필요)
+
     response.delete_cookie(
         key="access_token",
         path="/",
         samesite="lax",
-        secure=True,  # 프로덕션: HTTPS 사용
+        secure=True,
     )
 
 
@@ -70,10 +70,9 @@ async def logout_all(
 ):
     """전체 로그아웃 (모든 기기)"""
     await auth_service.logout_all(user_id)
-    # SSO 플로우를 위해 쿠키도 삭제 (설정 일치 필요)
     response.delete_cookie(
         key="access_token",
         path="/",
         samesite="lax",
-        secure=True,  # 프로덕션: HTTPS 사용
+        secure=True,
     )
