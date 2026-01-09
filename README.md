@@ -1,4 +1,4 @@
-# Identity Service
+# IdP Server
 
 사내 서비스들을 위한 SSO 인증 서버. OAuth2/OIDC 표준을 따르는 IdP 서버입니다.
 

@@ -1,7 +1,7 @@
 [project]
-name = "identity-service"
+name = "idp-server"
 version = "0.1.0"
-description = "SSO Identity Service with FastAPI"
+description = "SSO Identity Provider Server with FastAPI"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi==0.109.0",
