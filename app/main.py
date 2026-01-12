@@ -42,7 +42,7 @@ def create_app() -> FastAPI:
     app.include_router(user_router, prefix=api_prefix)
     app.include_router(auth_router, prefix=api_prefix)
     app.include_router(social_router, prefix=api_prefix)
-    app.include_router(sso_router, prefix=api_prefix)  # SSO 라우터 등록
+    app.include_router(sso_router, prefix=api_prefix)
 
     @app.get("/health")
     async def healch_check():
