@@ -45,7 +45,7 @@ def create_app() -> FastAPI:
     app.include_router(sso_router, prefix=api_prefix)
 
     @app.get("/health")
-    async def healch_check():
+    async def health_check():
         return {"status": "healthy"}
 
     return app
