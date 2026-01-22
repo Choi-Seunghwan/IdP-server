@@ -80,8 +80,10 @@ class AuthService:
         if not stored_token:
             raise UnauthorizedException(detail="Invalid or revoked token")
 
-        # 만료 확인
-        if stored_token.expires_at < datetime.now(UTC):
+        expires_at = stored_token.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        if expires_at < datetime.now(UTC):
             raise UnauthorizedException(detail="Token expired")
 
         # 새 Access Token 발급
