@@ -3,20 +3,25 @@ import hashlib
 import base64
 from datetime import datetime, timedelta, UTC
 from typing import Optional
+
+from jose import jwt
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
+from cryptography.hazmat.backends import default_backend
+
 from app.sso.model import AuthorizationCode, OAuth2Client
 from app.sso.dto import TokenRequestDto, TokenResponseDto, UserInfoResponseDto
-from app.sso.persistence import (
-    OAuth2ClientRepository,
-    AuthorizationCodeRepository,
-)
+from app.sso.persistence import AuthorizationCodeRepository
 from app.sso.client_service import ClientService
 from app.user.service import UserService
-from app.core.security import create_access_token, create_refresh_token, verify_token
-from app.core.exceptions import (
-    BadRequestException,
-    UnauthorizedException,
-    NotFoundException,
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    verify_token,
+    _get_signing_key,
 )
+from app.core.jwt_keys import load_rsa_public_key, get_jwk_from_public_key
+from app.core.exceptions import BadRequestException, UnauthorizedException
 from app.config import settings
 
 
@@ -169,8 +174,6 @@ class SSOService:
         if "openid" not in scopes:
             return None
 
-        from jose import jwt
-
         now = datetime.now(UTC)
         expires_at = now + timedelta(minutes=settings.access_token_expire_minutes)
 
@@ -195,8 +198,6 @@ class SSOService:
             payload["email"] = user.email
 
         # ID Token 서명
-        from app.core.security import _get_signing_key
-
         signing_key = _get_signing_key()
         return jwt.encode(payload, signing_key, algorithm=settings.algorithm)
 
@@ -234,16 +235,14 @@ class SSOService:
         """
         if settings.algorithm == "RS256":
             # RSA Public Key 로드
-            from app.core.jwt_keys import load_rsa_public_key, get_jwk_from_public_key
-
             public_key = None
             if settings.rsa_public_key:
-                from cryptography.hazmat.primitives import serialization
-                from cryptography.hazmat.backends import default_backend
-
-                public_key = serialization.load_pem_public_key(
+                loaded_key = serialization.load_pem_public_key(
                     settings.rsa_public_key.encode("utf-8"), backend=default_backend()
                 )
+                if not isinstance(loaded_key, RSAPublicKey):
+                    return {"keys": []}
+                public_key = loaded_key
             else:
                 public_key = load_rsa_public_key(settings.rsa_public_key_path)
 
@@ -269,6 +268,59 @@ class SSOService:
                     }
                 ]
             }
+
+    async def refresh_tokens(
+        self, client_id: str, client_secret: Optional[str], refresh_token: str
+    ) -> TokenResponseDto:
+        """
+        Refresh Token으로 새로운 Access Token 발급
+        """
+        # Client 검증
+        client = await self.client_service.verify_client_secret(client_id, client_secret)
+
+        # Refresh Token 검증
+        payload = verify_token(refresh_token, token_type="refresh")
+
+        user_id = payload.get("sub")
+        if not user_id:
+            raise UnauthorizedException(detail="Invalid refresh token")
+
+        # 토큰에 저장된 client_id와 요청한 client_id 일치 여부 확인
+        token_client_id = payload.get("client_id")
+        if token_client_id and token_client_id != client_id:
+            raise UnauthorizedException(detail="Client ID mismatch")
+
+        user = await self.user_service.get_user_by_id(user_id)
+
+        # 기존 스코프 유지 (없으면 기본값)
+        scope = payload.get("scope", "openid profile email")
+
+        # 새 Access Token 생성
+        access_token = create_access_token(
+            data={
+                "sub": user.id,
+                "email": user.email,
+                "client_id": client.client_id,
+                "scope": scope,
+            }
+        )
+
+        # 새 Refresh Token 생성
+        new_refresh_token = create_refresh_token(
+            data={"sub": user.id, "client_id": client.client_id, "scope": scope}
+        )
+
+        # ID Token 재발급 (openid 스코프가 있는 경우)
+        id_token = self._create_id_token(user, client, scope)
+
+        return TokenResponseDto(
+            access_token=access_token,
+            token_type="Bearer",
+            expires_in=settings.access_token_expire_minutes * 60,
+            refresh_token=new_refresh_token,
+            scope=scope,
+            id_token=id_token,
+        )
 
     def get_openid_configuration(self) -> dict:
         """

@@ -1,7 +1,10 @@
+from urllib.parse import urlencode, quote
+
 from fastapi import APIRouter, Depends, Query, Form, Header, status
 from fastapi.responses import RedirectResponse, HTMLResponse
 from pathlib import Path
 from typing import Optional
+
 from app.sso.dto import (
     CreateClientDto,
     ClientDto,
@@ -19,11 +22,7 @@ from app.core.exceptions import BadRequestException
 router = APIRouter(prefix="/oauth2", tags=["sso"])
 
 
-# ============================================
 # Client 관리 엔드포인트 (관리자용)
-# ============================================
-
-
 @router.post("/clients", response_model=ClientDto, status_code=status.HTTP_201_CREATED)
 async def create_client(
     dto: CreateClientDto,
@@ -34,11 +33,6 @@ async def create_client(
     사내 서비스를 Client로 등록하여 SSO 사용 가능하게 함
     """
     return await client_service.create_client(dto)
-
-
-# ============================================
-# OAuth2 표준 엔드포인트
-# ============================================
 
 
 @router.get("/authorize")
@@ -80,8 +74,6 @@ async def authorize(
     if not current_user_id:
         # 로그인하지 않았으면 로그인 페이지로 리다이렉트
         # authorize 파라미터들을 URL 인코딩하여 전달
-        from urllib.parse import urlencode, quote
-
         authorize_params = {
             "response_type": response_type,
             "client_id": client_id,
@@ -106,7 +98,7 @@ async def authorize(
         client=client,
         user_id=current_user_id,
         redirect_uri=redirect_uri,
-        scopes=scope,
+        scopes=scope or "openid profile email",
         state=state,
         code_challenge=code_challenge,
         code_challenge_method=code_challenge_method,
@@ -146,14 +138,19 @@ async def token(
             redirect_uri=redirect_uri,
             client_id=client_id,
             client_secret=client_secret,
+            refresh_token=None,
             code_verifier=code_verifier,
         )
         return await sso_service.exchange_code_for_tokens(dto)
 
     elif grant_type == "refresh_token":
-        # Refresh Token 갱신은 기존 AuthService 사용
-        # TODO: SSO Service에 refresh 메서드 추가 필요
-        raise BadRequestException(detail="refresh_token grant type not implemented yet")
+        if not refresh_token:
+            raise BadRequestException(detail="refresh_token is required")
+        return await sso_service.refresh_tokens(
+            client_id=client_id,
+            client_secret=client_secret,
+            refresh_token=refresh_token,
+        )
 
     else:
         raise BadRequestException(detail=f"Unsupported grant_type: {grant_type}")
