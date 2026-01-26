@@ -1,6 +1,6 @@
 from datetime import datetime, UTC
 import uuid
-from sqlalchemy import String, DateTime, ForeignKey, Boolean, Text
+from sqlalchemy import String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 from app.user.model import User

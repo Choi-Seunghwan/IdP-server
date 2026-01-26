@@ -1,9 +1,10 @@
+from datetime import UTC, datetime, timedelta
+
 from fastapi import APIRouter, Depends, status, Response
+
 from app.auth.service import AuthService
 from app.auth.di import get_auth_service
 from app.auth.dto import LoginDto, TokenDto, AccessTokenDto, RefreshTokenDto
-from app.core.exceptions import UnauthorizedException
-from datetime import UTC, datetime, timedelta
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])

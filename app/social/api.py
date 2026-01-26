@@ -1,12 +1,14 @@
+import secrets
+from urllib.parse import urlencode
+
 from fastapi import APIRouter, Depends, Query, status
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import RedirectResponse
+
 from app.core.dependencies import get_current_user_id_from_token
 from app.core.state_manager import save_oauth_state, verify_oauth_state
 from app.social.service import SocialService
 from app.social.di import get_social_service
-from app.social.dto import SocialLoginUrlDto, SocialLoginDto, SocialAccountDto, ConnectSocialDto
-from urllib.parse import urlencode
-import secrets
+from app.social.dto import SocialLoginUrlDto, SocialAccountDto, ConnectSocialDto
 
 router = APIRouter(prefix="/social", tags=["social"])
 

@@ -8,6 +8,9 @@ from app.social.dto import (
     OAuthUserInfo,
 )
 from app.social.persistence import SocialAccountRepository
+from app.social.providers.google import GoogleOAuthProvider
+from app.social.providers.kakao import KakaoOAuthProvider
+from app.social.providers.naver import NaverOAuthProvider
 from app.user.service import UserService
 from app.auth.service import AuthService
 from app.core.exceptions import BadRequestException, NotFoundException
@@ -26,10 +29,6 @@ class SocialService:
 
     async def get_authorization_url(self, provider: str, state: str) -> SocialLoginUrlDto:
         """OAuth 인증 URL 생성"""
-        from app.social.providers.google import GoogleOAuthProvider
-        from app.social.providers.kakao import KakaoOAuthProvider
-        from app.social.providers.naver import NaverOAuthProvider
-
         providers_map = {
             "google": GoogleOAuthProvider,
             "kakao": KakaoOAuthProvider,
@@ -85,8 +84,8 @@ class SocialService:
         self, user_id: str, provider: str, code: str
     ) -> SocialAccountDto:
         """기존 사용자에게 소셜 계정 연결"""
-        # 사용자 존재 확인 (UserService 사용)
-        user = await self.user_service.get_user_by_id(user_id)
+        # 사용자 존재 확인 (UserService 사용, 없으면 NotFoundException 발생)
+        await self.user_service.get_user_by_id(user_id)
 
         # OAuth 사용자 정보 획득
         user_info = await self._get_oauth_user_info(provider, code)
@@ -132,10 +131,6 @@ class SocialService:
 
     async def _get_oauth_user_info(self, provider: str, code: str) -> OAuthUserInfo:
         """OAuth Provider로부터 사용자 정보 획득"""
-        from app.social.providers.google import GoogleOAuthProvider
-        from app.social.providers.kakao import KakaoOAuthProvider
-        from app.social.providers.naver import NaverOAuthProvider
-
         providers_map = {
             "google": GoogleOAuthProvider,
             "kakao": KakaoOAuthProvider,

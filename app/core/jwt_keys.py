@@ -4,15 +4,17 @@ RSA 키 쌍 생성 및 로드
 """
 
 import os
+import base64
 from pathlib import Path
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.backends import default_backend
-from jose import jwk
 from typing import Optional, Tuple
 
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
 
-def generate_rsa_key_pair() -> Tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]:
+
+def generate_rsa_key_pair() -> Tuple[RSAPrivateKey, RSAPublicKey]:
     """RSA 키 쌍 생성 (2048비트)"""
     private_key = rsa.generate_private_key(
         public_exponent=65537, key_size=2048, backend=default_backend()
@@ -22,8 +24,8 @@ def generate_rsa_key_pair() -> Tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]:
 
 
 def save_rsa_key_pair(
-    private_key: rsa.RSAPrivateKey,
-    public_key: rsa.RSAPublicKey,
+    private_key: RSAPrivateKey,
+    public_key: RSAPublicKey,
     private_key_path: str,
     public_key_path: str,
 ) -> None:
@@ -47,7 +49,7 @@ def save_rsa_key_pair(
         f.write(public_pem)
 
 
-def load_rsa_private_key(key_path: str) -> Optional[rsa.RSAPrivateKey]:
+def load_rsa_private_key(key_path: str) -> Optional[RSAPrivateKey]:
     """RSA Private Key 로드"""
     if not os.path.exists(key_path):
         return None
@@ -56,20 +58,26 @@ def load_rsa_private_key(key_path: str) -> Optional[rsa.RSAPrivateKey]:
         private_key = serialization.load_pem_private_key(
             f.read(), password=None, backend=default_backend()
         )
+    # RSA 키만 지원
+    if not isinstance(private_key, RSAPrivateKey):
+        return None
     return private_key
 
 
-def load_rsa_public_key(key_path: str) -> Optional[rsa.RSAPublicKey]:
+def load_rsa_public_key(key_path: str) -> Optional[RSAPublicKey]:
     """RSA Public Key 로드"""
     if not os.path.exists(key_path):
         return None
 
     with open(key_path, "rb") as f:
         public_key = serialization.load_pem_public_key(f.read(), backend=default_backend())
+    # RSA 키만 지원
+    if not isinstance(public_key, RSAPublicKey):
+        return None
     return public_key
 
 
-def get_jwk_from_public_key(public_key: rsa.RSAPublicKey, kid: str = "default") -> dict:
+def get_jwk_from_public_key(public_key: RSAPublicKey, kid: str = "default") -> dict:
     """
     RSA Public Key를 JWK 형식으로 변환
 
@@ -80,21 +88,11 @@ def get_jwk_from_public_key(public_key: rsa.RSAPublicKey, kid: str = "default") 
     Returns:
         JWK 딕셔너리
     """
-    # Public Key를 PEM 형식으로 변환
-    public_pem = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo
-    )
-
-    # jose 라이브러리를 사용하여 JWK 변환
-    jwk_dict = jwk.construct(public_key, algorithm="RS256")
-
     # JWK 형식으로 변환
     public_numbers = public_key.public_numbers()
 
     # Base64 URL 인코딩 (패딩 제거)
     def base64url_encode(data: bytes) -> str:
-        import base64
-
         return base64.urlsafe_b64encode(data).decode("utf-8").rstrip("=")
 
     # n (modulus)와 e (exponent)를 Base64 URL 인코딩
@@ -111,7 +109,7 @@ def get_jwk_from_public_key(public_key: rsa.RSAPublicKey, kid: str = "default") 
     }
 
 
-def get_private_key_pem_string(private_key: rsa.RSAPrivateKey) -> str:
+def get_private_key_pem_string(private_key: RSAPrivateKey) -> str:
     """Private Key를 PEM 문자열로 변환"""
     pem = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
@@ -121,7 +119,7 @@ def get_private_key_pem_string(private_key: rsa.RSAPrivateKey) -> str:
     return pem.decode("utf-8")
 
 
-def get_public_key_pem_string(public_key: rsa.RSAPublicKey) -> str:
+def get_public_key_pem_string(public_key: RSAPublicKey) -> str:
     """Public Key를 PEM 문자열로 변환"""
     pem = public_key.public_bytes(
         encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo

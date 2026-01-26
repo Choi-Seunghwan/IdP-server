@@ -1,13 +1,14 @@
+import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import Any, Dict, Optional
+
 import bcrypt
-import hashlib
-from app.config import settings
 from jose import JWTError, jwt
-from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 from cryptography.hazmat.backends import default_backend
 
+from app.config import settings
 from app.core.exceptions import UnauthorizedException
 from app.core.jwt_keys import (
     load_rsa_private_key,
@@ -55,9 +56,12 @@ def _get_signing_key():
 
         # 환경 변수에서 직접 키 로드 시도
         if settings.rsa_private_key:
-            private_key = serialization.load_pem_private_key(
+            loaded_key = serialization.load_pem_private_key(
                 settings.rsa_private_key.encode("utf-8"), password=None, backend=default_backend()
             )
+            if not isinstance(loaded_key, RSAPrivateKey):
+                raise ValueError("Only RSA private keys are supported")
+            private_key = loaded_key
         else:
             # 파일에서 키 로드
             private_key = load_rsa_private_key(settings.rsa_private_key_path)
@@ -99,9 +103,12 @@ def _get_verification_key():
 
         # 환경 변수에서 직접 키 로드 시도
         if settings.rsa_public_key:
-            public_key = serialization.load_pem_public_key(
+            loaded_key = serialization.load_pem_public_key(
                 settings.rsa_public_key.encode("utf-8"), backend=default_backend()
             )
+            if not isinstance(loaded_key, RSAPublicKey):
+                raise ValueError("Only RSA public keys are supported")
+            public_key = loaded_key
         else:
             # 파일에서 키 로드
             public_key = load_rsa_public_key(settings.rsa_public_key_path)

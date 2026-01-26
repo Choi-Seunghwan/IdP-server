@@ -3,7 +3,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 
-from datetime import datetime, UTC
+from datetime import datetime, timedelta, UTC
 
 from app.auth.model import RefreshToken
 
@@ -72,8 +72,6 @@ class RefreshTokenRepositoryImpl(RefreshTokenRepository):
     async def delete_expired_tokens(self) -> None:
         """만료되거나 취소된 지 오래된 토큰 삭제 (배치 작업용)"""
         # 만료된 토큰 또는 30일 이상 취소된 토큰 삭제
-        from datetime import timedelta
-
         thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
 
         await self.db.execute(

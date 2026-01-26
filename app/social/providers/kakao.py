@@ -1,4 +1,3 @@
-from typing import Optional
 import httpx
 from app.config import settings
 from app.social.dto import OAuthUserInfo
