@@ -15,6 +15,9 @@ from app.core.jwt_keys import (
     get_public_key_pem_string,
 )
 
+# JWT 알고리즘 (RS256 고정, MSA 환경에서 비대칭키 사용)
+JWT_ALGORITHM = "RS256"
+
 
 def hash_password(password: str) -> str:
     """
@@ -64,7 +67,7 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
         }
     )
     signing_key = _get_signing_key()
-    return jwt.encode(to_encode, signing_key, algorithm="RS256")
+    return jwt.encode(to_encode, signing_key, algorithm=JWT_ALGORITHM)
 
 
 def create_refresh_token(data: Dict[str, Any]) -> str:
@@ -78,7 +81,7 @@ def create_refresh_token(data: Dict[str, Any]) -> str:
         }
     )
     signing_key = _get_signing_key()
-    return jwt.encode(to_encode, signing_key, algorithm="RS256")
+    return jwt.encode(to_encode, signing_key, algorithm=JWT_ALGORITHM)
 
 
 def _get_verification_key() -> str:
@@ -94,7 +97,7 @@ def _get_verification_key() -> str:
 def decode_token(token: str) -> Dict[str, Any]:
     try:
         verification_key = _get_verification_key()
-        return jwt.decode(token, verification_key, algorithms=["RS256"])
+        return jwt.decode(token, verification_key, algorithms=[JWT_ALGORITHM])
     except JWTError:
         raise UnauthorizedException(detail="Could not validate credentials")
 

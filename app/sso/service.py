@@ -5,9 +5,6 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Optional
 
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from jose import jwt
 
 from app.auth.model import RefreshToken
@@ -16,6 +13,7 @@ from app.config import settings
 from app.core.exceptions import BadRequestException, UnauthorizedException
 from app.core.jwt_keys import get_jwk_from_public_key, load_rsa_public_key
 from app.core.security import (
+    JWT_ALGORITHM,
     _get_signing_key,
     create_access_token,
     create_refresh_token,
@@ -188,7 +186,7 @@ class SSOService:
             payload["email"] = user.email
 
         signing_key = _get_signing_key()
-        return jwt.encode(payload, signing_key, algorithm=settings.algorithm)
+        return jwt.encode(payload, signing_key, algorithm=JWT_ALGORITHM)
 
     async def get_user_info(self, access_token: str) -> UserInfoResponseDto:
         """OpenID Connect UserInfo 엔드포인트"""
@@ -211,34 +209,13 @@ class SSOService:
         )
 
     def get_jwks(self) -> dict:
-        """JSON Web Key Set (JWKS) 제공"""
-        if settings.algorithm == "RS256":
-            public_key = None
-            if settings.rsa_public_key:
-                loaded_key = serialization.load_pem_public_key(
-                    settings.rsa_public_key.encode("utf-8"), backend=default_backend()
-                )
-                if not isinstance(loaded_key, RSAPublicKey):
-                    return {"keys": []}
-                public_key = loaded_key
-            else:
-                public_key = load_rsa_public_key(settings.rsa_public_key_path)
+        """JSON Web Key Set (JWKS) 제공 (RS256)"""
+        public_key = load_rsa_public_key(settings.rsa_public_key_path)
+        if not public_key:
+            return {"keys": []}
 
-            if not public_key:
-                return {"keys": []}
-
-            jwk_dict = get_jwk_from_public_key(public_key, kid="default")
-            return {"keys": [jwk_dict]}
-        else:
-            return {
-                "keys": [
-                    {
-                        "kty": "oct",
-                        "alg": settings.algorithm,
-                        "use": "sig",
-                    }
-                ]
-            }
+        jwk_dict = get_jwk_from_public_key(public_key, kid="default")
+        return {"keys": [jwk_dict]}
 
     async def refresh_tokens(
         self, client_id: str, client_secret: Optional[str], refresh_token: str
@@ -326,7 +303,7 @@ class SSOService:
             "response_types_supported": ["code"],
             "grant_types_supported": ["authorization_code", "refresh_token"],
             "subject_types_supported": ["public"],
-            "id_token_signing_alg_values_supported": [settings.algorithm],
+            "id_token_signing_alg_values_supported": [JWT_ALGORITHM],
             "scopes_supported": ["openid", "profile", "email"],
             "token_endpoint_auth_methods_supported": [
                 "client_secret_post",
