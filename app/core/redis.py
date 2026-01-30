@@ -25,4 +25,3 @@ async def close_redis():
     if _redis_client:
         await _redis_client.aclose()
         _redis_client = None
-

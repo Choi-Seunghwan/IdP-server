@@ -14,6 +14,7 @@ from app.sso.model import AuthorizationCode, OAuth2Client
 # OAuth2Client Repository
 # ============================================
 
+
 class OAuth2ClientRepository(ABC):
     """OAuth2 Client Repository 인터페이스"""
 
@@ -49,9 +50,7 @@ class OAuth2ClientRepositoryImpl(OAuth2ClientRepository):
         return client
 
     async def find_by_id(self, client_id: str) -> Optional[OAuth2Client]:
-        result = await self.db.execute(
-            select(OAuth2Client).where(OAuth2Client.id == client_id)
-        )
+        result = await self.db.execute(select(OAuth2Client).where(OAuth2Client.id == client_id))
         return result.scalar_one_or_none()
 
     async def find_by_client_id(self, client_id: str) -> Optional[OAuth2Client]:
@@ -79,6 +78,7 @@ class OAuth2ClientRepositoryImpl(OAuth2ClientRepository):
 # ============================================
 # AuthorizationCode Repository
 # ============================================
+
 
 class AuthorizationCodeRepository(ABC):
     """Authorization Code Repository 인터페이스"""
@@ -108,20 +108,26 @@ class AuthorizationCodeRepositoryImpl(AuthorizationCodeRepository):
         return f"{self.CODE_PREFIX}{code}"
 
     def _serialize(self, auth_code: AuthorizationCode) -> str:
-        return json.dumps({
-            "id": auth_code.id,
-            "code": auth_code.code,
-            "client_id": auth_code.client_id,
-            "user_id": auth_code.user_id,
-            "redirect_uri": auth_code.redirect_uri,
-            "scopes": auth_code.scopes,
-            "code_challenge": auth_code.code_challenge,
-            "code_challenge_method": auth_code.code_challenge_method,
-            "state": auth_code.state,
-            "expires_at": auth_code.expires_at.isoformat(),
-            "is_used": auth_code.is_used,
-            "created_at": auth_code.created_at.isoformat() if auth_code.created_at else datetime.now(UTC).isoformat(),
-        })
+        return json.dumps(
+            {
+                "id": auth_code.id,
+                "code": auth_code.code,
+                "client_id": auth_code.client_id,
+                "user_id": auth_code.user_id,
+                "redirect_uri": auth_code.redirect_uri,
+                "scopes": auth_code.scopes,
+                "code_challenge": auth_code.code_challenge,
+                "code_challenge_method": auth_code.code_challenge_method,
+                "state": auth_code.state,
+                "expires_at": auth_code.expires_at.isoformat(),
+                "is_used": auth_code.is_used,
+                "created_at": (
+                    auth_code.created_at.isoformat()
+                    if auth_code.created_at
+                    else datetime.now(UTC).isoformat()
+                ),
+            }
+        )
 
     def _deserialize(self, data: str) -> AuthorizationCode:
         obj = json.loads(data)
@@ -167,4 +173,3 @@ class AuthorizationCodeRepositoryImpl(AuthorizationCodeRepository):
     async def mark_as_used(self, auth_code: AuthorizationCode) -> None:
         """사용 처리 후 즉시 삭제 (1회용)"""
         await self.redis.delete(self._key(auth_code.code))
-

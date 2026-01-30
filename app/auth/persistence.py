@@ -62,9 +62,7 @@ class RefreshTokenRepositoryImpl(RefreshTokenRepository):
 
     async def revoke_by_id(self, token_id: str) -> None:
         """특정 토큰 폐기"""
-        result = await self.db.execute(
-            select(RefreshToken).where(RefreshToken.id == token_id)
-        )
+        result = await self.db.execute(select(RefreshToken).where(RefreshToken.id == token_id))
         refresh_token = result.scalar_one_or_none()
 
         if refresh_token:

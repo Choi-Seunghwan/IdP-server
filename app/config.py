@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"  # JWT 서명 알고리즘 (HS256 또는 RS256)
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
-    
+
     # RSA Keys (RS256 사용 시)
     # 키 파일 경로 또는 키 자체를 환경 변수로 설정 가능
     rsa_private_key_path: str = "keys/private_key.pem"

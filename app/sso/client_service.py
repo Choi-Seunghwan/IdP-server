@@ -22,7 +22,7 @@ class ClientService:
         """
         # client_id 생성 (랜덤 문자열)
         client_id = f"client_{secrets.token_urlsafe(16)}"
-        
+
         # client_secret 생성 (Confidential 클라이언트만)
         client_secret = None
         if dto.client_type == ClientType.CONFIDENTIAL:
@@ -70,9 +70,7 @@ class ClientService:
             raise NotFoundException(detail=f"Client is not active: {client_id}")
         return client
 
-    async def verify_client_secret(
-        self, client_id: str, client_secret: str | None
-    ) -> OAuth2Client:
+    async def verify_client_secret(self, client_id: str, client_secret: str | None) -> OAuth2Client:
         """
         Client ID와 Secret 검증
         Public 클라이언트는 client_secret이 None이어야 함
@@ -90,4 +88,3 @@ class ClientService:
                 raise NotFoundException(detail="Public client should not provide secret")
 
         return client
-
