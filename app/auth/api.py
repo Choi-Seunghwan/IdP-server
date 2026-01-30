@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, status, Response
 
 from app.auth.service import AuthService
 from app.auth.di import get_auth_service
-from app.auth.dto import LoginDto, TokenDto, AccessTokenDto, RefreshTokenDto
+from app.auth.dto import LoginDto, RefreshTokenDto, TokenDto
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -16,7 +16,6 @@ async def login(
 ):
     """
     로그인
-    SSO 플로우를 위해 쿠키에도 토큰 저장
     """
     token_dto = await auth_service.login(dto)
 
@@ -38,11 +37,11 @@ async def login(
     return token_dto
 
 
-@router.post("/refresh", response_model=AccessTokenDto)
+@router.post("/refresh", response_model=TokenDto)
 async def refresh_token(
     dto: RefreshTokenDto, auth_service: AuthService = Depends(get_auth_service)
 ):
-    """Access Token 갱신"""
+    """Access Token 갱신 (Token Rotation)"""
     return await auth_service.refresh(dto)
 
 
