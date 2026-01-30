@@ -21,14 +21,11 @@ from app.core.jwt_keys import (
 
 def hash_password(password: str) -> str:
     """
-    비밀번호 해시
-    bcrypt는 72바이트 제한이 있으므로, 긴 비밀번호는 먼저 SHA-256으로 해시한 후 bcrypt에 전달
+    비밀번호 해시 (SHA-256 + bcrypt)
+    bcrypt는 72바이트 제한이 있음. 비밀번호 SHA-256으로 해싱
     """
-    password_bytes = password.encode("utf-8")
-
-    # 72바이트를 초과하는 경우 SHA-256으로 사전 해싱
-    if len(password_bytes) > 72:
-        password_bytes = hashlib.sha256(password_bytes).digest()
+    # SHA-256 사전 해싱 (32바이트 출력, bcrypt 72바이트 제한 내)
+    password_bytes = hashlib.sha256(password.encode("utf-8")).digest()
 
     salt = bcrypt.gensalt()
     hashed = bcrypt.hashpw(password_bytes, salt)
@@ -37,13 +34,11 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
-    비밀번호를 검증 hash_password와 동일한 방식으로 처리
+    비밀번호 검증 (SHA-256 + bcrypt)
+    hash_password와 동일한 방식으로 처리
     """
-    password_bytes = plain_password.encode("utf-8")
-
-    # 72바이트를 초과하는 경우 SHA-256으로 사전 해싱
-    if len(password_bytes) > 72:
-        password_bytes = hashlib.sha256(password_bytes).digest()
+    # SHA-256 사전 해싱
+    password_bytes = hashlib.sha256(plain_password.encode("utf-8")).digest()
 
     hashed_bytes = hashed_password.encode("utf-8")
     return bcrypt.checkpw(password_bytes, hashed_bytes)
@@ -83,11 +78,13 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
     expire = datetime.now(UTC) + (
         expires_delta or timedelta(minutes=settings.access_token_expire_minutes)
     )
-    to_encode.update({
-        "exp": expire,
-        "type": "access",
-        "jti": str(uuid.uuid4()),
-    })
+    to_encode.update(
+        {
+            "exp": expire,
+            "type": "access",
+            "jti": str(uuid.uuid4()),
+        }
+    )
     signing_key = _get_signing_key()
     return jwt.encode(to_encode, signing_key, algorithm=settings.algorithm)
 
@@ -95,11 +92,13 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
 def create_refresh_token(data: Dict[str, Any]) -> str:
     to_encode = data.copy()
     expire = datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days)
-    to_encode.update({
-        "exp": expire,
-        "type": "refresh",
-        "jti": str(uuid.uuid4()),
-    })
+    to_encode.update(
+        {
+            "exp": expire,
+            "type": "refresh",
+            "jti": str(uuid.uuid4()),
+        }
+    )
     signing_key = _get_signing_key()
     return jwt.encode(to_encode, signing_key, algorithm=settings.algorithm)
 
