@@ -15,13 +15,19 @@ fake = Faker()
 
 
 @pytest.fixture
-def test_settings() -> Settings:
-    """테스트용 설정"""
+def test_settings(tmp_path, rsa_keypair) -> Settings:
+    """테스트용 설정 (RS256)"""
+    # 임시 RSA 키 파일 생성
+    private_key_path = tmp_path / "private_key.pem"
+    public_key_path = tmp_path / "public_key.pem"
+    private_key_path.write_text(rsa_keypair["private_pem"])
+    public_key_path.write_text(rsa_keypair["public_pem"])
+
     return Settings(
         database_url="sqlite+aiosqlite:///:memory:",
         redis_url="redis://localhost:6379/1",
-        secret_key="test-secret-key-for-testing-only",
-        algorithm="HS256",
+        rsa_private_key_path=str(private_key_path),
+        rsa_public_key_path=str(public_key_path),
         debug=True,
         environment="test",
     )

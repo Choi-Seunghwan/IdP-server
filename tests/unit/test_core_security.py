@@ -51,13 +51,14 @@ class TestVerifyPassword:
 class TestCreateAccessToken:
     """Access Token 생성 테스트"""
 
-    def test_create_access_token(self, monkeypatch, test_settings):
-        """Access Token 생성 및 디코딩"""
+    def test_create_access_token(self, monkeypatch, test_settings, rsa_keypair):
+        """Access Token 생성 및 디코딩 (RS256)"""
         monkeypatch.setattr("app.core.security.settings", test_settings)
 
         token = create_access_token({"sub": "user-123", "email": "test@example.com"})
 
-        decoded = jwt.decode(token, test_settings.secret_key, algorithms=[test_settings.algorithm])
+        # RS256: public key로 검증
+        decoded = jwt.decode(token, rsa_keypair["public_pem"], algorithms=["RS256"])
         assert decoded["sub"] == "user-123"
         assert decoded["type"] == "access"
 
@@ -65,15 +66,14 @@ class TestCreateAccessToken:
 class TestCreateRefreshToken:
     """Refresh Token 생성 테스트"""
 
-    def test_create_refresh_token(self, monkeypatch, test_settings):
-        """Refresh Token 생성"""
-        test_settings.rsa_private_key = ""
-        test_settings.rsa_public_key = ""
+    def test_create_refresh_token(self, monkeypatch, test_settings, rsa_keypair):
+        """Refresh Token 생성 (RS256)"""
         monkeypatch.setattr("app.core.security.settings", test_settings)
 
         token = create_refresh_token({"sub": "user-123"})
 
-        decoded = jwt.decode(token, test_settings.secret_key, algorithms=[test_settings.algorithm])
+        # RS256: public key로 검증
+        decoded = jwt.decode(token, rsa_keypair["public_pem"], algorithms=["RS256"])
         assert decoded["sub"] == "user-123"
         assert decoded["type"] == "refresh"
 

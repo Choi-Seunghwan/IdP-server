@@ -5,9 +5,6 @@ from typing import Any, Dict, Optional
 
 import bcrypt
 from jose import JWTError, jwt
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
-from cryptography.hazmat.backends import default_backend
 
 from app.config import settings
 from app.core.exceptions import UnauthorizedException
@@ -44,33 +41,14 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(password_bytes, hashed_bytes)
 
 
-def _get_signing_key():
-    """JWT 서명에 사용할 키 반환 (알고리즘에 따라 다름)"""
-    if settings.algorithm == "RS256":
-        # RSA Private Key 로드
-        private_key = None
-
-        # 환경 변수에서 직접 키 로드 시도
-        if settings.rsa_private_key:
-            loaded_key = serialization.load_pem_private_key(
-                settings.rsa_private_key.encode("utf-8"), password=None, backend=default_backend()
-            )
-            if not isinstance(loaded_key, RSAPrivateKey):
-                raise ValueError("Only RSA private keys are supported")
-            private_key = loaded_key
-        else:
-            # 파일에서 키 로드
-            private_key = load_rsa_private_key(settings.rsa_private_key_path)
-
-        if not private_key:
-            raise ValueError(
-                "RSA private key not found. "
-                "Please set RSA_PRIVATE_KEY or RSA_PRIVATE_KEY_PATH in .env"
-            )
-        return get_private_key_pem_string(private_key)
-    else:
-        # HS256: 대칭키 사용
-        return settings.secret_key
+def _get_signing_key() -> str:
+    """JWT 서명에 사용할 RSA Private Key 반환 (파일에서 로드)"""
+    private_key = load_rsa_private_key(settings.rsa_private_key_path)
+    if not private_key:
+        raise ValueError(
+            f"RSA private key not found at {settings.rsa_private_key_path}"
+        )
+    return get_private_key_pem_string(private_key)
 
 
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
@@ -86,7 +64,7 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
         }
     )
     signing_key = _get_signing_key()
-    return jwt.encode(to_encode, signing_key, algorithm=settings.algorithm)
+    return jwt.encode(to_encode, signing_key, algorithm="RS256")
 
 
 def create_refresh_token(data: Dict[str, Any]) -> str:
@@ -100,43 +78,23 @@ def create_refresh_token(data: Dict[str, Any]) -> str:
         }
     )
     signing_key = _get_signing_key()
-    return jwt.encode(to_encode, signing_key, algorithm=settings.algorithm)
+    return jwt.encode(to_encode, signing_key, algorithm="RS256")
 
 
-def _get_verification_key():
-    """JWT 검증에 사용할 키 반환 (알고리즘에 따라 다름)"""
-    if settings.algorithm == "RS256":
-        # RSA Public Key 로드
-        public_key = None
-
-        # 환경 변수에서 직접 키 로드 시도
-        if settings.rsa_public_key:
-            loaded_key = serialization.load_pem_public_key(
-                settings.rsa_public_key.encode("utf-8"), backend=default_backend()
-            )
-            if not isinstance(loaded_key, RSAPublicKey):
-                raise ValueError("Only RSA public keys are supported")
-            public_key = loaded_key
-        else:
-            # 파일에서 키 로드
-            public_key = load_rsa_public_key(settings.rsa_public_key_path)
-
-        if not public_key:
-            raise ValueError(
-                "RSA public key not found. "
-                "Please set RSA_PUBLIC_KEY or RSA_PUBLIC_KEY_PATH in .env"
-            )
-        # jose 라이브러리는 PEM 문자열을 기대하므로 변환
-        return get_public_key_pem_string(public_key)
-    else:
-        # HS256: 대칭키 사용
-        return settings.secret_key
+def _get_verification_key() -> str:
+    """JWT 검증에 사용할 RSA Public Key 반환 (파일에서 로드)"""
+    public_key = load_rsa_public_key(settings.rsa_public_key_path)
+    if not public_key:
+        raise ValueError(
+            f"RSA public key not found at {settings.rsa_public_key_path}"
+        )
+    return get_public_key_pem_string(public_key)
 
 
 def decode_token(token: str) -> Dict[str, Any]:
     try:
         verification_key = _get_verification_key()
-        return jwt.decode(token, verification_key, algorithms=[settings.algorithm])
+        return jwt.decode(token, verification_key, algorithms=["RS256"])
     except JWTError:
         raise UnauthorizedException(detail="Could not validate credentials")
 
