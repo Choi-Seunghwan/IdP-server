@@ -6,8 +6,6 @@ from pathlib import Path
 from typing import Optional
 
 from app.sso.dto import (
-    CreateClientDto,
-    ClientDto,
     TokenRequestDto,
     TokenResponseDto,
     UserInfoResponseDto,
@@ -20,19 +18,6 @@ from app.core.exceptions import BadRequestException
 
 
 router = APIRouter(prefix="/oauth2", tags=["sso"])
-
-
-# Client 관리 엔드포인트 (관리자용)
-@router.post("/clients", response_model=ClientDto, status_code=status.HTTP_201_CREATED)
-async def create_client(
-    dto: CreateClientDto,
-    client_service: ClientService = Depends(get_client_service),
-):
-    """
-    OAuth2 Client 등록
-    사내 서비스를 Client로 등록하여 SSO 사용 가능하게 함
-    """
-    return await client_service.create_client(dto)
 
 
 @router.get("/authorize")

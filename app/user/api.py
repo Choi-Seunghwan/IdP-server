@@ -21,12 +21,6 @@ async def get_my_profile(current_user: UserDto = Depends(get_current_user)):
     return current_user
 
 
-@router.get("/{user_id}", response_model=UserDto)
-async def get_user(user_id: str, user_service: UserService = Depends(get_user_service)):
-    """사용자 조회 (관리자용)"""
-    return await user_service.get_user_by_id(user_id)
-
-
 @router.patch("/me", response_model=UserDto)
 async def update_my_profile(
     dto: UpdateUserDto,
