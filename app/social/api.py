@@ -1,11 +1,14 @@
 import secrets
-from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import RedirectResponse
 
 from app.core.dependencies import get_current_user_id_from_token
-from app.core.state_manager import save_oauth_state, verify_oauth_state
+from app.core.state_manager import (
+    save_oauth_state,
+    verify_oauth_state,
+    save_social_exchange_code,
+)
 from app.social.service import SocialService
 from app.social.di import get_social_service
 from app.social.dto import SocialLoginUrlDto, SocialAccountDto, ConnectSocialDto
@@ -48,17 +51,16 @@ async def social_login_callback(
     if state_data and state_data.get("redirect"):
         redirect_url = state_data["redirect"]
 
-        # HTML 페이지로 리다이렉트하여 토큰 저장 후 원래 URL로 이동
-        # 토큰을 쿼리 파라미터로 전달 (보안상 완벽하지 않지만 동작함)
-        # 더 나은 방법: 세션 또는 쿠키 사용
-        token_params = urlencode(
-            {
-                "access_token": login_result.access_token,
-                "refresh_token": login_result.refresh_token,
-                "redirect": redirect_url,
-            }
+        # 일회용 교환 코드 생성 (토큰을 URL에 직접 노출하지 않음)
+        exchange_code = secrets.token_urlsafe(32)
+        await save_social_exchange_code(
+            code=exchange_code,
+            access_token=login_result.access_token,
+            refresh_token=login_result.refresh_token,
+            redirect=redirect_url,
         )
-        return RedirectResponse(url=f"/api/oauth2/social-callback?{token_params}")
+
+        return RedirectResponse(url=f"/api/oauth2/social-callback?code={exchange_code}")
 
     # 일반 API 응답 (JSON)
     return login_result

@@ -1,6 +1,6 @@
 from urllib.parse import urlencode, quote
 
-from fastapi import APIRouter, Depends, Query, Form, Header, status
+from fastapi import APIRouter, Depends, Query, Form, Header
 from fastapi.responses import RedirectResponse, HTMLResponse
 from pathlib import Path
 from typing import Optional
@@ -15,6 +15,7 @@ from app.sso.client_service import ClientService
 from app.sso.di import get_sso_service, get_client_service
 from app.core.dependencies import get_optional_user_id_from_token
 from app.core.exceptions import BadRequestException
+from app.core.state_manager import exchange_social_code
 
 
 router = APIRouter(prefix="/oauth2", tags=["sso"])
@@ -186,11 +187,7 @@ async def openid_configuration(sso_service: SSOService = Depends(get_sso_service
     return sso_service.get_openid_configuration()
 
 
-# ============================================
 # IDP 로그인 페이지
-# ============================================
-
-
 @router.get("/login")
 async def login_page(redirect: Optional[str] = Query(None)):
     """
@@ -208,41 +205,39 @@ async def login_page(redirect: Optional[str] = Query(None)):
     return HTMLResponse(content=html_content)
 
 
-@router.get("/social-callback")
-async def social_callback(
-    access_token: str = Query(...),
-    refresh_token: str = Query(...),
-    redirect: str = Query(...),
+@router.post("/exchange-social-code")
+async def exchange_social_code_endpoint(
+    code: str = Form(...),
 ):
     """
-    소셜 로그인 콜백 처리 페이지
-    GET /oauth2/social-callback?access_token=xxx&refresh_token=xxx&redirect=xxx
+    소셜 로그인 교환 코드로 토큰 조회
+    POST /oauth2/exchange-social-code
 
-    소셜 로그인 후 토큰을 받아서 저장하고 원래 URL로 리다이렉트
+    일회용 코드를 토큰으로 교환 (보안 강화)
     """
-    # HTML 페이지로 토큰 저장 및 리다이렉트
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="ko">
-    <head>
-        <meta charset="UTF-8">
-        <title>로그인 처리 중...</title>
-    </head>
-    <body>
-        <script>
-            // 토큰 저장
-            localStorage.setItem("access_token", "{access_token}");
-            localStorage.setItem("refresh_token", "{refresh_token}");
-            
-            // 쿠키에도 토큰 저장
-            const expires = new Date();
-            expires.setTime(expires.getTime() + 30 * 60 * 1000); // 30분
-            document.cookie = `access_token={access_token}; expires=${{expires.toUTCString()}}; path=/; SameSite=Lax`;
-            
-            // 원래 URL로 리다이렉트
-            window.location.href = "{redirect}";
-        </script>
-    </body>
-    </html>
+    result = await exchange_social_code(code)
+    if not result:
+        raise BadRequestException(detail="Invalid or expired code")
+
+    return {
+        "access_token": result["access_token"],
+        "refresh_token": result["refresh_token"],
+        "redirect": result["redirect"],
+        "token_type": "bearer",
+    }
+
+
+@router.get("/social-callback")
+async def social_callback():
     """
+    소셜 로그인 콜백 처리 페이지
+    GET /oauth2/social-callback?code=xxx
+
+    일회용 코드를 받아서 API로 토큰 교환 후 저장하고 원래 URL로 리다이렉트
+    """
+    # HTML 파일 읽기
+    templates_dir = Path(__file__).parent / "templates"
+    html_file = templates_dir / "social-callback.html"
+    html_content = html_file.read_text(encoding="utf-8")
+
     return HTMLResponse(content=html_content)

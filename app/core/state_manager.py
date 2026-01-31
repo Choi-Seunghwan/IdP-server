@@ -6,6 +6,9 @@ import json
 # State 만료 시간 (초) - 10분
 STATE_EXPIRE_SECONDS = 600
 
+# Social Exchange Code 만료 시간 - 1분 (보안상 짧게)
+SOCIAL_CODE_EXPIRE_SECONDS = 60
+
 """OAuth State 관리 모듈. CSRF 공격 방지를 위한 state 검증"""
 
 
@@ -54,4 +57,49 @@ async def verify_oauth_state(state: str, provider: str) -> Optional[Dict[str, An
         return data if isinstance(data, dict) else None
     except (json.JSONDecodeError, TypeError):
         # "1" 같은 단순 값이면 None 반환
+        return None
+
+
+# Social Exchange Code (토큰 교환용 일회용 코드)
+async def save_social_exchange_code(
+    code: str,
+    access_token: str,
+    refresh_token: str,
+    redirect: str,
+) -> None:
+    """
+    소셜 로그인 성공 후 일회용 교환 코드 저장
+    토큰을 URL에 직접 노출하지 않고, 짧은 수명의 코드로 교환하도록 함
+    """
+    redis = await get_redis()
+    key = f"social_exchange:{code}"
+
+    data = {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "redirect": redirect,
+    }
+    await redis.setex(key, SOCIAL_CODE_EXPIRE_SECONDS, json.dumps(data))
+
+
+async def exchange_social_code(code: str) -> Optional[Dict[str, Any]]:
+    """
+    소셜 교환 코드로 토큰 조회 및 삭제 (일회용)
+
+    Returns:
+        {"access_token": str, "refresh_token": str, "redirect": str} 또는 None
+    """
+    redis = await get_redis()
+    key = f"social_exchange:{code}"
+
+    value = await redis.get(key)
+    if not value:
+        return None
+
+    # 코드 삭제 (일회용)
+    await redis.delete(key)
+
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
         return None
