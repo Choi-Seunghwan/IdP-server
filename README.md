@@ -4,11 +4,11 @@
 
 ## 기능
 
-- 이메일 회원가입/로그인 (JWT, RS256/HS256 지원)
+- 이메일 회원가입/로그인 (JWT, RS256)
 - 소셜 로그인 (Google, Kakao, Naver)
 - SSO (OAuth2 Authorization Code Flow, PKCE 지원)
 - OIDC (ID Token, UserInfo, JWKS, Discovery)
-- MSA 환경 지원 (RS256 + JWKS)
+- MSA 환경 지원 (RS256 비대칭키 + JWKS)
 
 ## 기술 스택
 
@@ -37,9 +37,8 @@ cp .env.example .env
 # 2. 의존성 설치
 uv sync
 
-# 3. RSA 키 생성 (RS256 사용 시)
+# 3. RSA 키 생성
 uv run python scripts/generate_rsa_keys.py
-# .env에 ALGORITHM=RS256 설정
 
 # 4. DB 마이그레이션
 uv run alembic upgrade head
@@ -67,7 +66,6 @@ API 문서: http://localhost:8000/docs
 - `GET /api/social/{provider}/callback` - OAuth 콜백
 
 ### SSO (OAuth2/OIDC)
-- `POST /api/oauth2/clients` - Client 등록
 - `GET /api/oauth2/login` - IdP 로그인 페이지
 - `GET /api/oauth2/authorize` - Authorization 요청
 - `POST /api/oauth2/token` - Token 교환
@@ -77,16 +75,42 @@ API 문서: http://localhost:8000/docs
 
 ## SSO 사용법
 
-### 1. Client 등록
+### 1. Client 등록 (DB 직접)
 
-```bash
-POST /api/oauth2/clients
-{
-  "name": "내부 관리 시스템",
-  "client_type": "public",
-  "redirect_uri": "http://localhost:3000/callback",
-  "scopes": "openid profile email"
-}
+보안상 Client 등록은 DB에서 직접 수행함
+
+```sql
+-- Public Client (SPA, 모바일 앱)
+INSERT INTO oauth2_clients (
+    id, client_id, client_secret, name,
+    client_type, redirect_uri, grant_types, scopes, is_active
+) VALUES (
+    gen_random_uuid(),
+    'my-spa-app',
+    NULL,
+    '프론트엔드 앱',
+    'public',
+    'http://localhost:3000/callback',
+    'authorization_code,refresh_token',
+    'openid profile email',
+    true
+);
+
+-- Confidential Client (백엔드 서버)
+INSERT INTO oauth2_clients (
+    id, client_id, client_secret, name,
+    client_type, redirect_uri, grant_types, scopes, is_active
+) VALUES (
+    gen_random_uuid(),
+    'internal-admin',
+    'your-secret-here',  -- 실제 운영에서는 안전한 시크릿 사용
+    '내부 관리 시스템',
+    'confidential',
+    'http://admin.example.com/callback',
+    'authorization_code,refresh_token',
+    'openid profile email',
+    true
+);
 ```
 
 ### 2. Authorization Code Flow
