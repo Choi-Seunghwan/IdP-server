@@ -5,13 +5,16 @@ from pydantic import BaseModel, EmailStr, Field
 
 # Base DTO
 class UserBaseDto(BaseModel):
-    email: EmailStr
+    email: Optional[EmailStr] = None
     username: Optional[str] = None
     phone_number: Optional[str] = None
 
 
 # 회원가입 요청 DTO
-class CreateUserDto(UserBaseDto):
+class CreateUserDto(BaseModel):
+    email: EmailStr
+    username: Optional[str] = None
+    phone_number: Optional[str] = None
     password: str = Field(
         ...,
         min_length=8,

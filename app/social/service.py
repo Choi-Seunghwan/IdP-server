@@ -54,24 +54,18 @@ class SocialService:
         )
 
         is_new_user = False
-        user_id: str
-        email: str
 
         if social_account:
             # 기존 사용자 로그인
             user = await self.user_service.get_user_by_id(social_account.user_id)
-            user_id = user.id
-            email = user.email
         else:
             # 신규 사용자 생성
             user = await self._create_user_from_oauth(user_info)
             social_account = await self._create_social_account(user.id, provider_enum, user_info)
-            user_id = user.id
-            email = user.email
             is_new_user = True
 
         # 3. 토큰 발급 (AuthService 위임)
-        tokens = await self.auth_service.login_with_user_id(user_id, email)
+        tokens = await self.auth_service.login_with_user_id(user.id, user.email)
 
         return SocialLoginDto(
             access_token=tokens.access_token,
@@ -146,8 +140,7 @@ class SocialService:
 
     async def _create_user_from_oauth(self, user_info: OAuthUserInfo):
         """OAuth 정보로 새 사용자 생성"""
-        email = user_info.email or f"user_{uuid.uuid4().hex[:8]}@social.local"
-        return await self.user_service.create_social_user(email, user_info.name)
+        return await self.user_service.create_social_user(user_info.email, user_info.name)
 
     async def _create_social_account(
         self, user_id: str, provider: SocialProvider, user_info: OAuthUserInfo

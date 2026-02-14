@@ -99,13 +99,14 @@ class UserService:
 
         return UserDto.model_validate(user)
 
-    async def create_social_user(self, email: str, username: str | None = None) -> UserDto:
+    async def create_social_user(self, email: str | None, username: str | None = None) -> UserDto:
         """소셜 로그인용 사용자 생성 (비밀번호 없음)"""
-        # 이메일 중복 체크
-        existing = await self.user_repository.find_by_email(email)
-        if existing:
-            # 이미 존재하는 경우 해당 사용자 반환
-            return UserDto.model_validate(existing)
+        # 이메일이 있으면 중복 체크
+        if email:
+            existing = await self.user_repository.find_by_email(email)
+            if existing:
+                # 이미 존재하는 경우 해당 사용자 반환
+                return UserDto.model_validate(existing)
 
         # User 엔티티 생성 (비밀번호 없음)
         user = User(

@@ -47,23 +47,21 @@ async def social_login_callback(
     # 소셜 로그인 처리
     login_result = await social_service.handle_callback(provider, code)
 
-    # redirect URL이 있으면 (IdP 로그인 페이지에서 온 경우)
-    if state_data and state_data.get("redirect"):
-        redirect_url = state_data["redirect"]
+    # 항상 일회용 교환 코드 발급 (토큰을 직접 응답하지 않음)
+    redirect_url = state_data.get("redirect") if state_data else None
+    exchange_code = secrets.token_urlsafe(32)
+    await save_social_exchange_code(
+        code=exchange_code,
+        access_token=login_result.access_token,
+        refresh_token=login_result.refresh_token,
+        redirect=redirect_url or "",
+    )
 
-        # 일회용 교환 코드 생성 (토큰을 URL에 직접 노출하지 않음)
-        exchange_code = secrets.token_urlsafe(32)
-        await save_social_exchange_code(
-            code=exchange_code,
-            access_token=login_result.access_token,
-            refresh_token=login_result.refresh_token,
-            redirect=redirect_url,
-        )
-
+    # redirect URL이 있으면 리다이렉트, 없으면 JSON으로 code 반환
+    if redirect_url:
         return RedirectResponse(url=f"/api/oauth2/social-callback?code={exchange_code}")
 
-    # 일반 API 응답 (JSON)
-    return login_result
+    return {"code": exchange_code, "is_new_user": login_result.is_new_user}
 
 
 @router.post("/connect", response_model=SocialAccountDto)

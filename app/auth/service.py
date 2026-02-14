@@ -43,9 +43,12 @@ class AuthService:
             access_token=access_token, refresh_token=refresh_token_value, token_type="bearer"
         )
 
-    async def login_with_user_id(self, user_id: str, email: str) -> TokenDto:
+    async def login_with_user_id(self, user_id: str, email: str | None) -> TokenDto:
         """이미 인증된 사용자로 토큰 발급 (소셜 로그인용)"""
-        access_token = create_access_token(data={"sub": user_id, "email": email})
+        token_data: dict = {"sub": user_id}
+        if email:
+            token_data["email"] = email
+        access_token = create_access_token(data=token_data)
 
         family_id = str(uuid.uuid4())
         refresh_token_value = create_refresh_token(data={"sub": user_id})
@@ -81,8 +84,6 @@ class AuthService:
         # Reuse Detection: 이미 폐기된 토큰으로 요청 시
         if not stored_token:
             # 해당 토큰이 이전에 존재했는지 확인 (family 내에서)
-            # 토큰이 없다 = 이미 rotation되어 폐기됨 = 탈취 의심
-            # 간단한 구현: 토큰이 없으면 에러
             raise UnauthorizedException(detail="Invalid or revoked token")
 
         # 만료 확인
