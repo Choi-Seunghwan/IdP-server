@@ -1,38 +1,45 @@
 # IdP Server
 
-사내 서비스들을 위한 SSO 인증 서버. OAuth2/OIDC 표준을 따르는 IdP 서버입니다.
+OAuth2/OIDC 표준을 따르는 Identity Provider 서버.
+사내 서비스들의 인증을 중앙화하고 SSO를 제공합니다.
 
 ## 기능
 
-- 이메일 회원가입/로그인 (JWT, RS256)
+- 이메일 회원가입 / 로그인
 - 소셜 로그인 (Google, Kakao, Naver)
 - SSO (OAuth2 Authorization Code Flow, PKCE 지원)
 - OIDC (ID Token, UserInfo, JWKS, Discovery)
-- MSA 환경 지원 (RS256 비대칭키 + JWKS)
+- Token Rotation + Reuse Detection
+- RS256 비대칭키 JWT (MSA 환경 지원)
 
 ## 기술 스택
 
-FastAPI, PostgreSQL (async), SQLAlchemy 2.0, Redis, uv
+| 구분 | 기술 |
+|------|------|
+| Framework | FastAPI (Python 3.11+) |
+| Database | PostgreSQL + SQLAlchemy 2.0 (async) |
+| Cache | Redis |
+| JWT | RS256 (비대칭키) |
+| Package Manager | uv |
 
 ## 구조
 
+DDD + Clean Architecture 패턴. 각 도메인은 `api`, `service`, `persistence`, `model`, `dto`, `di`로 구성.
+
 ```
 app/
-├── core/      # DB, Security, Exceptions
-├── user/      # 회원
-├── auth/      # 인증
-├── social/    # 소셜 로그인
-└── sso/       # OAuth2/OIDC
+├── core/      # DB, Redis, Security, JWT 키 관리, 예외
+├── user/      # 사용자 계정
+├── auth/      # 인증, Access/Refresh Token
+├── social/    # 소셜 로그인 (Google, Kakao, Naver)
+└── sso/       # OAuth2 / OIDC 엔드포인트
 ```
-
-DDD + Clean Architecture 패턴 사용. 각 도메인은 model, dto, persistence, service, api로 구성.
 
 ## 실행
 
 ```bash
-# 1. .env 파일 설정
+# 1. 환경변수 설정
 cp .env.example .env
-# DATABASE_URL, SECRET_KEY 등 수정
 
 # 2. 의존성 설치
 uv sync
@@ -51,33 +58,37 @@ API 문서: http://localhost:8000/docs
 
 ## API
 
-### 인증
-- `POST /api/auth/login` - 로그인
-- `POST /api/auth/refresh` - 토큰 갱신
-- `POST /api/auth/logout` - 로그아웃
-
 ### 사용자
 - `POST /api/users` - 회원가입
 - `GET /api/users/me` - 프로필 조회
 - `PATCH /api/users/me` - 프로필 수정
 
-### 소셜 로그인
-- `GET /api/social/{provider}/login` - 소셜 로그인 URL
-- `GET /api/social/{provider}/callback` - OAuth 콜백
+### 인증
+- `POST /api/auth/login` - 로그인
+- `POST /api/auth/refresh` - 토큰 갱신 (Token Rotation)
+- `POST /api/auth/logout` - 로그아웃
+- `POST /api/auth/logout-all` - 전체 기기 로그아웃
 
-### SSO (OAuth2/OIDC)
+### 소셜 로그인
+- `GET /api/social/{provider}/login` - 소셜 로그인 URL 생성
+- `GET /api/social/{provider}/callback` - OAuth 콜백 처리
+- `POST /api/social/connect` - 소셜 계정 연결
+- `GET /api/social/accounts` - 연결된 소셜 계정 목록
+- `DELETE /api/social/accounts/{id}` - 소셜 계정 연결 해제
+
+### SSO (OAuth2 / OIDC)
 - `GET /api/oauth2/login` - IdP 로그인 페이지
-- `GET /api/oauth2/authorize` - Authorization 요청
-- `POST /api/oauth2/token` - Token 교환
-- `GET /api/oauth2/userinfo` - 사용자 정보
-- `GET /api/oauth2/jwks` - 공개키 (MSA용)
-- `GET /api/oauth2/.well-known/openid-configuration` - OIDC 메타데이터
+- `GET /api/oauth2/authorize` - Authorization Code 발급
+- `POST /api/oauth2/token` - Token 교환 (authorization_code, refresh_token)
+- `GET /api/oauth2/userinfo` - 사용자 정보 (OIDC)
+- `GET /api/oauth2/jwks` - 공개키 (MSA 토큰 검증용)
+- `GET /api/oauth2/.well-known/openid-configuration` - OIDC Discovery
 
 ## SSO 사용법
 
-### 1. Client 등록 (DB 직접)
+### 1. Client 등록
 
-보안상 Client 등록은 DB에서 직접 수행함
+보안상 Client 등록은 DB에서 직접 수행합니다.
 
 ```sql
 -- Public Client (SPA, 모바일 앱)
@@ -85,45 +96,39 @@ INSERT INTO oauth2_clients (
     id, client_id, client_secret, name,
     client_type, redirect_uri, grant_types, scopes, is_active
 ) VALUES (
-    gen_random_uuid(),
-    'my-spa-app',
-    NULL,
-    '프론트엔드 앱',
-    'public',
-    'http://localhost:3000/callback',
-    'authorization_code,refresh_token',
-    'openid profile email',
-    true
+    gen_random_uuid(), 'my-spa-app', NULL, '프론트엔드 앱',
+    'public', 'http://localhost:3000/callback',
+    'authorization_code,refresh_token', 'openid profile email', true
 );
 
--- Confidential Client (백엔드 서버)
+-- Confidential Client (서버 사이드 앱)
 INSERT INTO oauth2_clients (
     id, client_id, client_secret, name,
     client_type, redirect_uri, grant_types, scopes, is_active
 ) VALUES (
-    gen_random_uuid(),
-    'internal-admin',
-    'your-secret-here',  -- 실제 운영에서는 안전한 시크릿 사용
-    '내부 관리 시스템',
-    'confidential',
-    'http://admin.example.com/callback',
-    'authorization_code,refresh_token',
-    'openid profile email',
-    true
+    gen_random_uuid(), 'my-backend', 'your-secret-here', '백엔드 서비스',
+    'confidential', 'http://service.example.com/callback',
+    'authorization_code,refresh_token', 'openid profile email', true
 );
 ```
 
 ### 2. Authorization Code Flow
 
-1. 사용자를 `/api/oauth2/authorize?client_id=xxx&redirect_uri=xxx`로 리다이렉트
-2. 로그인 안 되어 있으면 IdP 로그인 페이지로 이동
-3. 로그인 후 Authorization Code 받음
-4. Code를 `/api/oauth2/token`으로 교환하여 Access Token 획득
-5. Access Token으로 `/api/oauth2/userinfo`에서 사용자 정보 조회
+```
+1. 사용자를 /api/oauth2/authorize?client_id=...&redirect_uri=...&response_type=code 로 리다이렉트
+2. IdP 로그인 완료 후 redirect_uri?code=... 로 리다이렉트
+3. code를 POST /api/oauth2/token 으로 교환 → Access/Refresh/ID Token 획득
+4. Access Token으로 GET /api/oauth2/userinfo 호출 → 사용자 정보 조회
+```
 
-### MSA 토큰 검증
+PKCE 사용 시 `code_challenge`, `code_challenge_method=S256` 파라미터 추가.
 
-다른 서비스에서 토큰 검증:
-1. `GET /api/oauth2/jwks`에서 공개키 가져오기
-2. 공개키로 JWT 검증
+### 3. MSA 토큰 검증
 
+다른 서비스에서 IdP가 발급한 토큰 검증:
+
+```
+1. GET /api/oauth2/jwks 로 공개키(JWKS) 조회
+2. 공개키로 JWT 서명 검증 (RS256)
+3. 만료시간(exp), 토큰 타입(type) 클레임 확인
+```
