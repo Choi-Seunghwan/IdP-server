@@ -4,7 +4,7 @@
 # IdP Server
 
 OAuth2/OIDC 표준을 따르는 Identity Provider 서버.
-사내 서비스들의 인증을 중앙화하고 SSO를 제공합니다.
+사내 서비스들의 인증을 중앙화하고 SSO를 제공.
 
 ## 기능
 
@@ -91,7 +91,7 @@ API 문서: http://localhost:8000/docs
 
 ### 1. Client 등록
 
-보안상 Client 등록은 DB에서 직접 수행합니다.
+Client 등록은 DB에서 직접 수행.
 
 ```sql
 -- Public Client (SPA, 모바일 앱)
