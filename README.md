@@ -1,3 +1,6 @@
+<img width="1210" height="910" alt="image1" src="https://github.com/user-attachments/assets/ddf3f016-80f6-45b3-bfde-4dc5862ba441" />
+
+
 # IdP Server
 
 OAuth2/OIDC 표준을 따르는 Identity Provider 서버.
